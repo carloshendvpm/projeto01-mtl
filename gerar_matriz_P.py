@@ -1,0 +1,76 @@
+import sys
+import warnings
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
+from sklearn.linear_model import LinearRegression
+from sklearn.model_selection import KFold
+from sklearn.neighbors import KNeighborsRegressor
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.svm import SVR
+from sklearn.tree import DecisionTreeRegressor
+
+sys.path.insert(0, str(Path(__file__).parent / "lib"))
+import regression_metrics as rm  # noqa: E402
+
+warnings.filterwarnings("ignore")
+
+DATA_DIR = Path(__file__).parent / "data"
+N_FOLDS = 10
+SEED = 42
+
+ALGORITMOS = {
+    "Linear": make_pipeline(StandardScaler(), LinearRegression()),
+    "KNN": make_pipeline(StandardScaler(), KNeighborsRegressor()),
+    "SVR": make_pipeline(StandardScaler(), SVR()),
+    "DT": DecisionTreeRegressor(random_state=SEED),
+    "RF": RandomForestRegressor(random_state=SEED, n_jobs=-1),
+    "GB": GradientBoostingRegressor(random_state=SEED),
+}
+
+
+def carregar(csv_path: Path):
+    df = pd.read_csv(csv_path)
+    y = df.iloc[:, 0].to_numpy()
+    X = df.iloc[:, 1:].to_numpy()
+    return X, y
+
+
+def rodar_dataset(csv_path: Path) -> list[dict]:
+    nome_dataset = csv_path.stem
+    X, y = carregar(csv_path)
+    kfold = KFold(n_splits=N_FOLDS, shuffle=True, random_state=SEED)
+
+    linhas = []
+    for fold, (idx_treino, idx_teste) in enumerate(kfold.split(X)):
+        X_treino, X_teste = X[idx_treino], X[idx_teste]
+        y_treino, y_teste = y[idx_treino], y[idx_teste]
+
+        for nome_algo, modelo in ALGORITMOS.items():
+            modelo.fit(X_treino, y_treino)
+            y_pred = modelo.predict(X_teste)
+            sera = rm.sera(y_teste, y_pred)
+            linhas.append(
+                {"dataset": nome_dataset, "algoritmo": nome_algo, "fold": fold, "sera": sera}
+            )
+    return linhas
+
+
+def main():
+    csv_paths = sorted(DATA_DIR.glob("*.csv"))
+    todas_linhas = []
+    for i, csv_path in enumerate(csv_paths, start=1):
+        print(f"[{i}/{len(csv_paths)}] {csv_path.name}")
+        todas_linhas.extend(rodar_dataset(csv_path))
+
+    resultado = pd.DataFrame(todas_linhas)
+    saida = Path(__file__).parent / "resultados_por_fold.csv"
+    resultado.to_csv(saida, index=False)
+    print(f"\nSalvo em {saida} ({len(resultado)} linhas)")
+
+
+if __name__ == "__main__":
+    main()
