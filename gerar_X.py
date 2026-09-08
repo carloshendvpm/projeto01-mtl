@@ -28,7 +28,11 @@ def extrair_meta_features(csv_path: Path) -> dict:
 
     params_phi = phi_ctrl_pts(y)
     relevancia = np.array(phi(y_serie, params_phi))
-    pct_relevante = float((relevancia >= LIMIAR_RELEVANCIA).mean())
+    relevante = relevancia >= LIMIAR_RELEVANCIA
+    mediana_y = np.median(y)
+    pct_relevante = float(relevante.mean())
+    pct_relevante_alta = float((relevante & (y > mediana_y)).mean())
+    pct_relevante_baixa = float((relevante & (y < mediana_y)).mean())
 
     return {
         "dataset": csv_path.stem,
@@ -43,6 +47,8 @@ def extrair_meta_features(csv_path: Path) -> dict:
         "y_kurtosis": kurtosis(y),
         "y_coef_variacao": y.std() / y.mean() if y.mean() != 0 else np.nan,
         "pct_relevante": pct_relevante,
+        "pct_relevante_alta": pct_relevante_alta,
+        "pct_relevante_baixa": pct_relevante_baixa,
     }
 
 
