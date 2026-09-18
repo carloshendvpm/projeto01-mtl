@@ -8,9 +8,10 @@ separadamente para dados normais e raros, além do dataset inteiro — é a
 generalização da adaptação proposta na ficha 4.6 daquele documento (`S3` relevante):
 lá, uma medida agregada na região relevante; aqui, todas as medidas nos três grupos.
 
-Aqui há **extração e caracterização**. Ainda não há ligação com `P`: a comparação
-entre `X` base e `X` estendido, prometida na seção 8 da Etapa 1 ("o ganho já foi
-demonstrado? Não"), continua pendente.
+Aqui há **extração e caracterização**. A ligação com `P` foi testada no mesmo dia,
+em `avaliacao_x_estendido.py`, e **o resultado é negativo**: nenhuma variante de `X`
+estendido melhora a recomendação (nenhum p abaixo de 0,10). Ver a seção 6 abaixo e
+a seção 11 do documento da prática.
 
 ## 1. O que foi implementado
 
@@ -164,7 +165,39 @@ L3, S1, S1_sd, S3 e S3_viz_global; deixar de fora as `_normal` e `T2_raro`.
   `X` já tem `pct_relevante_alta` e `pct_relevante_baixa`; separar as duas caudas
   também nas medidas é o próximo teste natural.
 - A subamostragem afeta 6 datasets; ali os valores são estimativas.
-- Nada disso foi ligado a `P` ainda. O passo seguinte é o que a §6, nota 4, da
-  Etapa 1 exige: refazer o leave-one-dataset-out com `X` estendido, sem usar
-  `P`/`R` para definir as colunas, e respeitando as partições de treino no
-  meta-nível ao selecionar características.
+- A ligação com `P` foi testada e não se sustentou — ver a seção 6.
+
+## 6. O teste de recomendação: resultado negativo
+
+`avaliacao_x_estendido.py` refaz o leave-one-dataset-out do Projeto 1 com quatro
+variantes de `X`: `base` (13 colunas), `+compl_all` (21, controle), `+compl_raro`
+(21) e `+ambos` (29). As 8 medidas acrescentadas saíram da recomendação da seção 4,
+que usa apenas o lado `X` — nenhuma coluna foi escolhida olhando `P` ou `R`.
+
+O controle `+compl_all` existe para separar duas explicações possíveis de um ganho:
+a separação por grupo ajudar, ou as medidas de complexidade ajudarem.
+
+| Abordagem | base | +compl_all | +compl_raro | +ambos |
+|---|---:|---:|---:|---:|
+| Abordagem 1 (Spearman) | 0,543 | 0,533 | 0,558 | 0,541 |
+| Abordagem 2 (Spearman) | 0,609 | 0,615 | 0,598 | 0,617 |
+| HARRIS (Spearman) | 0,621 | 0,621 | 0,611 | 0,602 |
+
+**Nenhum p do Wilcoxon pareado contra a base fica abaixo de 0,10.** As variações
+são de ±0,02 e o sinal nem é consistente entre abordagens.
+
+Dois pontos de contexto:
+
+- **As abordagens de agregação, que ignoram `X`, obtêm 0,616 (AR e Vitórias
+  Significativas)** — acima da Abordagem 1 e empatadas com HARRIS. Um ranking fixo
+  já iguala o melhor meta-modelo, o que deixa pouca margem para qualquer
+  meta-característica nova aparecer.
+- **A floresta usa as colunas novas e mesmo assim não melhora.** No diagnóstico de
+  importância (`importancia_meta_features.csv`, ajustado aos 30 datasets), `L1_all`
+  é a característica mais importante de todas (0,158) e as 8 colunas do dataset
+  inteiro concentram 37% da importância. Importância não é ganho — que é a mesma
+  ressalva que a Etapa 1 fez sobre a análise do Meta-IR.
+
+Com 30 exemplos no meta-nível e 13→29 colunas, o regime é adverso a qualquer coluna
+nova. A continuação natural é testar uma ou duas colunas apenas, ou seleção de
+características dentro de cada partição de treino (nota 4 da §6 da Etapa 1).
