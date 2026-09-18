@@ -21,7 +21,14 @@ import pandas as pd
 RAIZ = Path(__file__).parent
 sys.path.insert(0, str(RAIZ / "lib"))
 
-from complexidade import MEDIDAS, MIN_INSTANCIAS, _minmax, calcular_todas  # noqa: E402
+from complexidade import (  # noqa: E402
+    MEDIDAS,
+    MIN_INSTANCIAS,
+    _minmax,
+    calcular_todas,
+    erros_1nn,
+    n_atributos_validos,
+)
 from phi import phi  # noqa: E402
 from phi_ctrl_pts import phi_ctrl_pts  # noqa: E402
 
@@ -68,10 +75,17 @@ def por_grupo(csv_path: Path) -> list[dict]:
         "raro": raro,
     }
 
+    # Variante da ficha 4.6: o vizinho e buscado no dataset INTEIRO e so a
+    # agregacao e restrita ao grupo. Difere de S3 recalculado dentro do grupo,
+    # que so admite vizinhos do proprio grupo (mais otimista para os raros).
+    e_global = erros_1nn(Xn, yn)
+
     linhas = []
     for grupo, m in mascaras.items():
         medidas = calcular_todas(Xn[m], yn[m], normalizar=False)
         linhas.append({
+            "S3_viz_global": float(e_global[m].mean()),
+            "n_atributos_validos": n_atributos_validos(Xn[m], yn[m]),
             "dataset": csv_path.stem,
             "grupo": grupo,
             "n": int(m.sum()),
@@ -92,9 +106,10 @@ def main():
     longo.to_csv(RAIZ / "complexidade.csv", index=False)
 
     largo = longo.pivot(index="dataset", columns="grupo",
-                        values=["n", *MEDIDAS])
+                        values=["n", *MEDIDAS, "S3_viz_global"])
     largo.columns = [f"{med}_{grupo}" for med, grupo in largo.columns]
-    largo = largo[[f"{med}_{g}" for med in ("n", *MEDIDAS) for g in GRUPOS]]
+    largo = largo[[f"{med}_{g}"
+                   for med in ("n", *MEDIDAS, "S3_viz_global") for g in GRUPOS]]
     largo.insert(0, "pct_raro", longo.groupby("dataset")["pct_raro"].first())
     largo.to_csv(RAIZ / "X_complexidade.csv")
 

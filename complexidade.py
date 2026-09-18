@@ -29,15 +29,18 @@ def _minmax(A: np.ndarray) -> np.ndarray:
 
 
 def _rho(X: np.ndarray, y: np.ndarray) -> np.ndarray:
-    """|rho de Spearman| de cada atributo com o alvo."""
+    """|rho de Spearman| de cada atributo com o alvo.
+
+    Atributo constante (ou alvo constante) devolve NaN, nao zero: a correlacao
+    ali e indefinida, e trata-la como zero seria afirmar ausencia de associacao
+    (ficha 4.2 do levantamento da Etapa 1). Os agregados C1/C2 ignoram os NaN.
+    """
     n_feat = X.shape[1]
-    out = np.zeros(n_feat)
+    out = np.full(n_feat, np.nan)
     for j in range(n_feat):
         if np.all(X[:, j] == X[0, j]):
-            out[j] = 0.0
             continue
-        r = spearmanr(X[:, j], y).statistic
-        out[j] = 0.0 if np.isnan(r) else abs(r)
+        out[j] = abs(spearmanr(X[:, j], y).statistic)
     return out
 
 
@@ -45,12 +48,22 @@ def _rho(X: np.ndarray, y: np.ndarray) -> np.ndarray:
 
 def C1(X, y):
     """Correlacao maxima atributo-alvo (quanto maior, mais simples)."""
-    return float(_rho(X, y).max())
+    return _agregado(_rho(X, y), np.nanmax)
 
 
 def C2(X, y):
-    """Correlacao media atributo-alvo."""
-    return float(_rho(X, y).mean())
+    """Correlacao media atributo-alvo (C2.mean do levantamento)."""
+    return _agregado(_rho(X, y), np.nanmean)
+
+
+def _agregado(rho: np.ndarray, fn) -> float:
+    """Agrega os rho validos; NaN se nenhum atributo tem correlacao definida."""
+    return np.nan if np.all(np.isnan(rho)) else float(fn(rho))
+
+
+def n_atributos_validos(X, y) -> int:
+    """Quantos atributos tem correlacao definida (entram em C1/C2)."""
+    return int(np.count_nonzero(~np.isnan(_rho(X, y))))
 
 
 def C3(X, y):
@@ -68,13 +81,10 @@ def _remover_ate_correlacionar(x, y, n, alvo=0.9):
     Remove iterativamente o exemplo com maior discrepancia entre o rank de x
     e o rank de y, como no algoritmo original.
     """
-    rx = np.argsort(np.argsort(x)).astype(float)
-    ry = np.argsort(np.argsort(y)).astype(float)
     sinal = 1.0
     r = spearmanr(x, y).statistic
     if not np.isnan(r) and r < 0:
         sinal = -1.0
-    rx = sinal * rx
     ativos = np.ones(n, dtype=bool)
     for removidos in range(n - 3):
         xi, yi = x[ativos], y[ativos]
@@ -97,7 +107,9 @@ def C4(X, y, limiar=0.1):
     restantes = list(range(X.shape[1]))
     while restantes and ativos.sum() > 2:
         rho = _rho(X[np.ix_(ativos, restantes)], y[ativos])
-        j = restantes.pop(int(np.argmax(rho)))
+        if np.all(np.isnan(rho)):
+            break
+        j = restantes.pop(int(np.nanargmax(rho)))
         xi = X[ativos, j].reshape(-1, 1)
         yi = y[ativos]
         res = np.abs(yi - LinearRegression().fit(xi, yi).predict(xi))
@@ -146,11 +158,21 @@ def _interpolar(X, y, rng=None):
 
 # ---------------------------------------------------------------- suavidade
 
+def _arestas_mst(X, y) -> np.ndarray:
+    """|y_i - y_j| em cada aresta unica da MST construida sobre X."""
+    mst = minimum_spanning_tree(squareform(pdist(X))).tocoo()
+    return np.abs(y[mst.row] - y[mst.col])
+
+
 def S1(X, y):
-    """Distribuicao do alvo: variacao media de y nas arestas da MST de X."""
-    D = squareform(pdist(X))
-    mst = minimum_spanning_tree(D).tocoo()
-    return float(np.abs(y[mst.row] - y[mst.col]).mean())
+    """Variacao media de y nas arestas da MST (S1.mean)."""
+    return float(_arestas_mst(X, y).mean())
+
+
+def S1_sd(X, y):
+    """Desvio padrao amostral da variacao de y nas arestas da MST (S1.sd)."""
+    a = _arestas_mst(X, y)
+    return float(a.std(ddof=1)) if len(a) > 1 else np.nan
 
 
 def S2(X, y):
@@ -164,11 +186,21 @@ def _predicao_1nn(Xtreino, ytreino, Xteste):
     return ytreino[np.argmin(D, axis=1)]
 
 
-def S3(X, y):
-    """Erro do vizinho mais proximo (leave-one-out, erro quadratico medio)."""
+def erros_1nn(X, y) -> np.ndarray:
+    """Erro quadratico de 1-NN leave-one-out para CADA exemplo.
+
+    O vizinho e buscado no conjunto inteiro passado aqui. Empates de distancia
+    resolvem-se pelo menor indice (convencao da ficha 4.5), que e o que argmin
+    ja faz. Serve de base para S3 e para as agregacoes restritas a um grupo.
+    """
     D = squareform(pdist(X))
     np.fill_diagonal(D, np.inf)
-    return float(((y - y[np.argmin(D, axis=1)]) ** 2).mean())
+    return (y - y[np.argmin(D, axis=1)]) ** 2
+
+
+def S3(X, y):
+    """Erro do vizinho mais proximo (leave-one-out, erro quadratico medio)."""
+    return float(erros_1nn(X, y).mean())
 
 
 def S4(X, y, rng=None):
@@ -187,7 +219,7 @@ def T2(X, y=None):
 MEDIDAS = {
     "C1": C1, "C2": C2, "C3": C3, "C4": C4,
     "L1": L1, "L2": L2, "L3": L3,
-    "S1": S1, "S2": S2, "S3": S3, "S4": S4,
+    "S1": S1, "S1_sd": S1_sd, "S2": S2, "S3": S3, "S4": S4,
     "T2": T2,
 }
 
