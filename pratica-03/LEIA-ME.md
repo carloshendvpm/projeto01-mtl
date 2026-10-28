@@ -15,7 +15,7 @@ O experimento usa Random Forest, 30 datasets, 60 configurações e validação c
 
 ## Reproduzir
 
-Instale `python3 -m pip install -r pratica-03/requirements.txt` a partir da raiz. Abra o notebook e execute as células em ordem. Com `EXECUTAR_MATRIZ = False` e `EXECUTAR_BUSCAS = False`, ele carrega os resultados salvos e refaz as análises; o piloto pequeno é executado novamente.
+Instale `python3 -m pip install -r pratica-03/requirements.txt` a partir da raiz. Abra o notebook e execute as células em ordem. Com `EXECUTAR_MATRIZ = False` e `EXECUTAR_BUSCAS = False`, ele carrega os resultados salvos e refaz as análises, sem repetir os treinos.
 
 Para reconstruir a matriz, ative `EXECUTAR_MATRIZ = True`. O notebook usa seis processos, com uma thread por Random Forest, e salva cada configuração concluída em `resultados/checkpoints/`. Para reconstrução integral desde zero, use uma cópia limpa do repositório. Checkpoints locais só podem ser reaproveitados com os mesmos dados, grade, folds, sementes, versões e implementação. Eles não são necessários para consultar a matriz consolidada e não são publicados.
 
