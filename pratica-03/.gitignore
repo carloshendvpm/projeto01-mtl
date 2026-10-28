@@ -1,0 +1,4 @@
+resultados/checkpoints/
+*.aux
+*.log
+*.out
