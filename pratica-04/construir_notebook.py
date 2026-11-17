@@ -17,15 +17,15 @@ def code(s):
 
 
 md("""
-# Prática 4 — AutoML versus meta-aprendizagem (regressão desbalanceada)
+# Prática 4: AutoML versus meta-aprendizagem em regressão desbalanceada
 
-Mesmo problema, medida e protocolo das Práticas 1–3: 30 datasets de regressão
-desbalanceada, **SERA** (menor é melhor) e as mesmas **dez partições** (KFold,
-`shuffle`, semente 42). O AutoML recebe só o treino de cada fold.
+Uso o mesmo protocolo das Práticas 1 a 3: 30 datasets de regressão desbalanceada,
+SERA (menor é melhor) e as mesmas dez partições (KFold com embaralhamento e semente 42).
+O AutoML recebe só o treino de cada fold.
 
-As execuções pesadas ficam em scripts (`executar_baselines.py`,
-`executar_warmstart.py`, `executar_automl.py`, encadeados por `rodar_tudo.sh`);
-este notebook só lê os resultados brutos de `resultados/` e faz as análises.
+As execuções pesadas estão nos scripts `executar_baselines.py`, `executar_warmstart.py`
+e `executar_automl.py`, chamados por `rodar_tudo.sh`. Este notebook só lê os resultados
+brutos de `resultados/` e faz as análises.
 """)
 
 code(r"""
@@ -69,10 +69,9 @@ assert (automl.groupby('metodo').size() == 300).all(), 'há execuções faltando
 """)
 
 md("""
-**Mesmo protocolo de fato.** A matriz P das práticas anteriores foi gerada por nós,
-nas mesmas partições; ainda assim os seis regressores foram reexecutados aqui
-(scikit-learn {versão atual}), junto com o AutoML, para que tempos e perdas venham
-do mesmo ambiente. A conferência abaixo compara com a P original.
+A matriz P das práticas anteriores já usa essas partições, mas reexecutei os seis
+regressores aqui, junto com o AutoML, para que tempos e perdas venham do mesmo ambiente.
+A célula abaixo compara o resultado com a P original.
 """)
 code(r"""
 P = base.pivot_table(index='dataset', columns='metodo', values='sera').loc[DATASETS, c.ALGORITMOS]
@@ -85,17 +84,17 @@ Rk = P.rank(axis=1)
 """)
 
 md("""
-## 2. Os métodos comparados
+## 2. Métodos comparados
 
-1. **Melhor médio** — algoritmo de melhor rank médio nos outros 29 datasets, configuração padrão.
-2. **MtL** — Abordagem 2 da Prática 1 (RF sobre R, com Xbase; Xestendido não trouxe ganho na Prática 2),
-   *leave-one-dataset-out*, top-1, configuração padrão.
-3. **Warm-start** — SMBO da Prática 3 (Xestendido, k=3, T=20) com avaliação interna no treino do fold.
-4. **AutoML** — FLAML (com e sem meta-conhecimento) e AutoGluon, em 5, 30 e 120 s por fold.
-5. **Oráculo** — melhor dos seis algoritmos de P no dataset (teto da seleção, não é método).
+1. Melhor médio: regressor de melhor rank médio nos outros 29 datasets, com configuração padrão.
+2. MtL: Abordagem 2 da Prática 1 (RF sobre R, com Xbase, em leave-one-dataset-out), top-1.
+   Xestendido não trouxe ganho significativo na Prática 2.
+3. Warm-start: SMBO da Prática 3 (Xestendido, k=3, T=20), avaliando só no treino do fold.
+4. AutoML: FLAML (com e sem meta-conhecimento) e AutoGluon, com 5, 30 e 120 s por fold.
+5. Oráculo: melhor dos seis regressores de P no dataset. É uma referência, não um método.
 
-Extra, ligado ao tema da pesquisa: **DESReg** (seleção dinâmica sobre o pool de bagging
-dos seis regressores), com competência padrão e com competência ponderada pela relevância (`phi`).
+Por causa do tema da minha pesquisa, incluí também a DESReg (seleção dinâmica sobre o pool
+de bagging dos seis regressores), com a competência padrão e com uma ponderada pela relevância (`phi`).
 """)
 code(r"""
 Xbase = pd.read_csv(c.META / 'X.csv', index_col=0).loc[DATASETS]
@@ -141,7 +140,7 @@ METODOS_FIXOS = ['Melhor_medio', 'MtL', 'Warm-start', 'DESReg', 'DESReg_phi']
 AUTOML = sorted(automl.metodo.unique(), key=lambda m: (m.split('_')[0], int(m.split('_')[-1][:-1]), m))
 """)
 
-md("## 3. Análise 1 — desempenho")
+md("## 3. Análise 1: desempenho")
 code(r"""
 # Perda relativa ao melhor resultado observado no dataset (entre todos os métodos e o oráculo)
 melhor = L.min(axis=1)
@@ -197,7 +196,7 @@ plt.colorbar(im, label='log10(1 + perda relativa)'); plt.tight_layout()
 plt.savefig(FIG / 'perda_por_dataset.pdf', bbox_inches='tight'); plt.show()
 """)
 
-md("## 4. Análise 2 — desempenho e custo")
+md("## 4. Análise 2: desempenho e custo")
 code(r"""
 # Custo offline (segundos de CPU somados), do conjunto das práticas:
 #  * MtL: construir P (6 regressores × 10 folds × 30 datasets, medido agora) e Xbase (30 extrações)
@@ -255,7 +254,7 @@ for sol in ['MtL', 'Warm-start']:
                   f'offline se paga após {int(np.ceil(offline[sol] / dif))} datasets novos')
 """)
 
-md("## 5. Análise 3 — o que o AutoML escolheu")
+md("## 5. Análise 3: o que o AutoML escolheu")
 code(r"""
 FAMILIA = {'rf': 'RF', 'RandomForestMSE': 'RF', 'RandomForest': 'RF', 'lgbm': 'GB', 'xgboost': 'GB', 'xgb_limitdepth': 'GB',
            'catboost': 'GB', 'LightGBM': 'GB', 'LightGBMXT': 'GB', 'LightGBMLarge': 'GB', 'CatBoost': 'GB', 'XGBoost': 'GB',
@@ -319,7 +318,7 @@ print('Datasets em que o AutoGluon 120 s supera o ORÁCULO dos 6 algoritmos:', i
 tab.to_csv(R / 'ganho_automl_por_dataset.csv')
 """)
 
-md("## 6. Meta-conhecimento dentro do AutoML e sobreposição com os nossos datasets")
+md("## 6. Meta-conhecimento do AutoML e sobreposição com os meus datasets")
 code(r"""
 # FLAML com e sem o portfólio zero-shot, no mesmo orçamento
 for orc in [5, 30, 120]:
