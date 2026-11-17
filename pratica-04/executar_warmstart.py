@@ -6,7 +6,9 @@ teste. Aqui a busca é refeita dentro de cada fold externo:
 
   * os pontos iniciais vêm dos k=3 vizinhos mais próximos em Xestendido
     (braço principal da Prática 3), usando só a matriz de perdas dos OUTROS 29
-    datasets (meta-conhecimento offline);
+    datasets (meta-conhecimento offline). O alvo é descrito pelo Xestendido
+    calculado só no treino do fold (meta_por_fold.py); na primeira versão ele
+    vinha do dataset inteiro, o que deixava o teste influenciar os vizinhos;
   * cada configuração avaliada é medida por validação cruzada interna (3 folds)
     sobre o treino do fold externo: a busca nunca vê o teste;
   * o SMBO (GP Matérn 2,5 + EI sobre a grade de 60 configurações) segue a
@@ -17,8 +19,13 @@ teste. Aqui a busca é refeita dentro de cada fold externo:
 Com --frio, registra também o SMBO com cinco iniciais aleatórias (o efeito do
 meta-conhecimento na própria solução já foi medido na Prática 3).
 
+A busca é determinística dado (treino, iniciais). Com --reaproveitar, um fold
+cujas iniciais coincidem com as da versão anterior (resultados/versao_1/) copia a
+linha antiga em vez de refazer a busca; o teste `test_warmstart_reaproveitado`
+refaz alguns desses folds e confere que a SERA é idêntica.
+
 Saída: resultados/warmstart_por_fold.csv
-Uso: .venv/bin/python executar_warmstart.py [--jobs 6] [--datasets ...]
+Uso: .venv/bin/python executar_warmstart.py [--jobs 6] [--datasets ...] [--reaproveitar]
 """
 from __future__ import annotations
 
@@ -58,13 +65,15 @@ def xestendido() -> pd.DataFrame:
     return pd.read_csv(c.P3 / "Xestendido_usado.csv", index_col=0)
 
 
-def vizinhos(meta: pd.DataFrame, alvo: str) -> pd.Series:
-    treino = meta.drop(index=alvo).replace([np.inf, -np.inf], np.nan)
+def vizinhos(meta_outros: pd.DataFrame, alvo: pd.Series) -> pd.Series:
+    """Distância do alvo aos outros datasets; escala e imputação ajustadas só nos outros."""
+    treino = meta_outros.replace([np.inf, -np.inf], np.nan)
     treino = treino.loc[:, treino.notna().any()]
     mediana = treino.median()
     escala = StandardScaler().fit(treino.fillna(mediana))
     a = escala.transform(treino.fillna(mediana))
-    b = escala.transform(meta.loc[[alvo], treino.columns].replace([np.inf, -np.inf], np.nan).fillna(mediana))
+    linha = pd.DataFrame([alvo[treino.columns].astype(float)]).replace([np.inf, -np.inf], np.nan)
+    b = escala.transform(linha.fillna(mediana))
     return pd.Series(np.linalg.norm(a - b, axis=1), index=treino.index).sort_values(kind="stable")
 
 
@@ -115,28 +124,49 @@ def buscar(X, y, iniciais, seed) -> tuple[str, float, list]:
     return melhor, segundos, [IDS[i] for i in vistos]
 
 
-def rodar(nome: str, matriz: pd.DataFrame, meta: pd.DataFrame, frio: bool) -> list[dict]:
+# Datasets da mesma origem (mesmo X ou mesmo sistema); ver Seção 9 do notebook
+GRUPOS = [{"a1", "a2", "a3", "a7"}, {"compactiv", "cpu_small"}, {"mortgage", "treasury"},
+          {"available_power", "maximal_torque"}]
+
+
+def parentes(nome: str) -> set[str]:
+    return next((g - {nome} for g in GRUPOS if nome in g), set())
+
+
+def rodar(nome: str, matriz: pd.DataFrame, meta: pd.DataFrame, meta_fold: pd.DataFrame,
+          antigos: pd.DataFrame | None, frio: bool, sem_parentes: bool = False) -> list[dict]:
     X, y = c.carregar(nome)
-    t0 = time.perf_counter()
-    viz = vizinhos(meta, nome)
-    iniciais = {"warmstart": iniciais_similares(matriz.drop(columns=nome), viz, K_VIZ)}
-    t_iniciais = time.perf_counter() - t0
-    if frio:
-        iniciais["smbo_frio"] = np.random.default_rng(0).choice(IDS, N_INIT, replace=False).tolist()
+    if sem_parentes:   # leave-one-group-out: o grupo do alvo sai do meta-conhecimento
+        fora = list(parentes(nome))
+        matriz, meta = matriz.drop(columns=fora), meta.drop(index=fora)
     linhas = []
     for fold, (tr, te) in enumerate(c.folds(X)):
+        t0 = time.perf_counter()
+        alvo = meta_fold.loc[(nome, fold)]
+        viz = vizinhos(meta.drop(index=nome), alvo)
+        iniciais = {"warmstart": iniciais_similares(matriz.drop(columns=nome), viz, K_VIZ)}
+        t_iniciais = time.perf_counter() - t0 + alvo["segundos_xbase"] + alvo["segundos_complexidade"]
+        if frio:
+            iniciais["smbo_frio"] = np.random.default_rng(0).choice(IDS, N_INIT, replace=False).tolist()
         for metodo, ini in iniciais.items():
+            base = dict(dataset=nome, fold=fold, metodo=metodo,
+                        segundos_iniciais=t_iniciais if metodo == "warmstart" else 0.0,
+                        vizinhos=",".join(viz.index[:K_VIZ]) if metodo == "warmstart" else "")
+            if antigos is not None and (nome, fold, metodo) in antigos.index:
+                velho = antigos.loc[(nome, fold, metodo)]
+                if velho.avaliadas.split(",")[:N_INIT] == ini:
+                    linhas.append({**base, **{k: velho[k] for k in
+                                   ["sera", "config", "segundos_busca", "segundos_final", "avaliadas"]},
+                                   "reaproveitado": True})
+                    continue
             melhor, s_busca, ordem = buscar(X[tr], y[tr], ini, seed=0)
             t1 = time.perf_counter()
             m = RandomForestRegressor(**CONFIGS[melhor], n_estimators=100, random_state=c.SEED, n_jobs=1)
             m.fit(X[tr], y[tr])
             perda = c.sera(y[te], m.predict(X[te]))
             s_final = time.perf_counter() - t1
-            linhas.append(dict(dataset=nome, fold=fold, metodo=metodo, sera=perda, config=melhor,
-                               segundos_busca=s_busca, segundos_final=s_final,
-                               segundos_iniciais=t_iniciais if metodo == "warmstart" else 0.0,
-                               vizinhos=",".join(viz.index[:K_VIZ]) if metodo == "warmstart" else "",
-                               avaliadas=",".join(ordem)))
+            linhas.append({**base, "sera": perda, "config": melhor, "segundos_busca": s_busca,
+                           "segundos_final": s_final, "avaliadas": ",".join(ordem), "reaproveitado": False})
     print(nome, "concluído", flush=True)
     return linhas
 
@@ -146,15 +176,28 @@ def main():
     ap.add_argument("--jobs", type=int, default=6)
     ap.add_argument("--datasets", nargs="*")
     ap.add_argument("--frio", action="store_true")
+    ap.add_argument("--reaproveitar", action="store_true")
+    ap.add_argument("--saida", default="warmstart_por_fold")
+    ap.add_argument("--sem-parentes", action="store_true",
+                    help="tira do meta-conhecimento os datasets da mesma origem (só datasets com parentes)")
     args = ap.parse_args()
     salvas = json.loads((c.P3 / "configuracoes.json").read_text())
     assert salvas == CONFIGS, "grade diferente da Prática 3"
     matriz = pd.read_csv(c.P3 / "matriz_perdas.csv", index_col=0)
     meta = xestendido()
+    from meta_por_fold import carregar_meta_por_fold
+    meta_fold = carregar_meta_por_fold()
+    antigos = None
+    if args.reaproveitar:
+        antigos = pd.read_csv(c.SAIDA / "versao_1" / "warmstart_por_fold.csv").set_index(["dataset", "fold", "metodo"])
     nomes = args.datasets or c.datasets()
-    saida = Parallel(n_jobs=args.jobs)(delayed(rodar)(n, matriz, meta, args.frio) for n in nomes)
-    sufixo = "" if not args.datasets else "_parcial"
-    pd.DataFrame([r for b in saida for r in b]).to_csv(c.SAIDA / f"warmstart_por_fold{sufixo}.csv", index=False)
+    if args.sem_parentes:
+        nomes = [n for n in nomes if parentes(n)]
+        args.saida = "warmstart_sem_parentes_por_fold"
+    saida = Parallel(n_jobs=args.jobs)(delayed(rodar)(n, matriz, meta, meta_fold, antigos, args.frio,
+                                                      args.sem_parentes) for n in nomes)
+    sufixo = "" if not args.datasets or args.sem_parentes else "_parcial"
+    pd.DataFrame([r for b in saida for r in b]).to_csv(c.SAIDA / f"{args.saida}{sufixo}.csv", index=False)
 
 
 if __name__ == "__main__":
