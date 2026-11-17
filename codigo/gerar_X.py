@@ -15,9 +15,18 @@ LIMIAR_RELEVANCIA = 0.8
 
 def extrair_meta_features(csv_path: Path) -> dict:
     df = pd.read_csv(csv_path)
-    y_serie = df.iloc[:, 0]
+    return {"dataset": csv_path.stem, **meta_features_de(df.iloc[:, 1:], df.iloc[:, 0])}
+
+
+def meta_features_de(X: pd.DataFrame, y_serie: pd.Series) -> dict:
+    """Os 13 descritores de Xbase calculados sobre (X, y) dados.
+
+    Separado da leitura do arquivo para que a Pratica 4 possa calcula-los so no
+    treino de cada fold externo.
+    """
+    X = pd.DataFrame(X).reset_index(drop=True)
+    y_serie = pd.Series(np.asarray(y_serie)).reset_index(drop=True)
     y = y_serie.to_numpy()
-    X = df.iloc[:, 1:]
 
     n_instances, n_features = X.shape
 
@@ -35,7 +44,6 @@ def extrair_meta_features(csv_path: Path) -> dict:
     pct_relevante_baixa = float((relevante & (y < mediana_y)).mean())
 
     return {
-        "dataset": csv_path.stem,
         "n_instances": n_instances,
         "n_features": n_features,
         "instances_per_feature": n_instances / n_features,

@@ -104,6 +104,13 @@ def _valor_para_X(valores: dict, medida: str) -> float:
 
 def processar(nome: str, csv_path: Path, cron: Cronometro, args) -> dict:
     Z, y = carregar_dataset(csv_path)
+    return processar_arrays(nome, Z, y, cron, sem_nulo=args.sem_nulo, B=args.B)
+
+
+def processar_arrays(nome: str, Z: np.ndarray, y: np.ndarray, cron: Cronometro,
+                     sem_nulo: bool = True, B: int = B_PADRAO) -> dict:
+    """Mesmo calculo de `processar`, sobre arrays ja carregados (p.ex. o treino
+    de um fold externo, na Pratica 4)."""
     # Memoria da matriz densa de distancias, que e o custo que forca o teto:
     # 1500^2 * 8 B = 18 MB, mas california (20640) daria 3,4 GB.
     cron.contexto(dataset=nome, n=len(y), p=Z.shape[1],
@@ -146,10 +153,10 @@ def processar(nome: str, csv_path: Path, cron: Cronometro, args) -> dict:
         # A nula e cara e diagnostica: roda na primeira replica, o que basta
         # para situar o valor observado. A variancia entre replicas ja esta
         # medida em complexidade_replicas.csv.
-        if not args.sem_nulo and i_rep == 0:
+        if not sem_nulo and i_rep == 0:
             observados = calcular_grupo(ContextoGrupo(Zn[raros], yn[raros])).valores
             with cron.fase("nulo", replica=i_rep):
-                for linha in avaliar_grupo_raro(Zn, yn, raros, observados, B=args.B):
+                for linha in avaliar_grupo_raro(Zn, yn, raros, observados, B=B):
                     nulo.append({"dataset": nome, **linha})
 
     df_longo = pd.DataFrame(longo)
