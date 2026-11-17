@@ -1,1 +1,14 @@
-.playwright-mcp/
+.DS_Store
+__pycache__/
+.pytest_cache/
+*.log
+!extracao.log
+*.aux
+*.fdb_latexmk
+*.fls
+*.out
+*.synctex.gz
+
+# Prática 4
+pratica-04/.venv/
+pratica-04/resultados/log_*.txt

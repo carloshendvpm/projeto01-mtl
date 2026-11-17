@@ -1,0 +1,10 @@
+{
+  "ajustes": 18000,
+  "matriz": [
+    60,
+    30
+  ],
+  "pontos_curvas": 120000,
+  "configuracoes_distintas_por_busca": 20,
+  "padrao_reproduzido_30_datasets": true
+}

@@ -1,0 +1,38 @@
+[1/30] a1: 58.9s
+[2/30] a2: 44.9s
+[3/30] a3: 69.4s
+[4/30] a7: 73.2s
+[5/30] abalone: 319.7s
+[6/30] acceleration: 232.9s
+[7/30] airfoild: 258.7s
+[8/30] analcatdata_apnea3: 253.0s
+[9/30] available_power: 489.6s
+[10/30] boston: 181.6s
+[11/30] california: 224.2s
+[12/30] cocomo_numeric: 88.7s
+[13/30] compactiv: 441.9s
+[14/30] concreteStrength: 71.3s
+[15/30] cpu_small: 225.6s
+[16/30] debutanizer: 190.5s
+[17/30] forestFires: 123.8s
+[18/30] fuel_consumption_country: 833.6s
+[19/30] heat: 262.3s
+[20/30] kdd_coil_1: 145.4s
+[21/30] lungcancer_shedden: 300.0s
+[22/30] maximal_torque: 1373.2s
+[23/30] meta: 1223.2s
+[24/30] mortgage: 80.8s
+[25/30] pdgfr: 454.0s
+[26/30] sensory: 96.3s
+[27/30] space_ga: 87.5s
+[28/30] treasury: 80.2s
+[29/30] triazines: 160.0s
+[30/30] wine_quality: 639.7s
+
+30 datasets, 9059.3s de extracao
+matriz de distancias estimada, maior dataset: 3250 MB
+
+indefinicoes por motivo:
+motivo
+identico_ao_primario    656
+p_maior_que_n            16

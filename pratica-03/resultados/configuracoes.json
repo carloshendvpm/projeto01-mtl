@@ -1,0 +1,242 @@
+{
+  "c000": {
+    "max_features": 1.0,
+    "min_samples_leaf": 1
+  },
+  "c001": {
+    "max_features": 1.0,
+    "min_samples_leaf": 2
+  },
+  "c002": {
+    "max_features": 1.0,
+    "min_samples_leaf": 3
+  },
+  "c003": {
+    "max_features": 1.0,
+    "min_samples_leaf": 4
+  },
+  "c004": {
+    "max_features": 1.0,
+    "min_samples_leaf": 5
+  },
+  "c005": {
+    "max_features": 1.0,
+    "min_samples_leaf": 6
+  },
+  "c006": {
+    "max_features": 1.0,
+    "min_samples_leaf": 8
+  },
+  "c007": {
+    "max_features": 1.0,
+    "min_samples_leaf": 10
+  },
+  "c008": {
+    "max_features": 1.0,
+    "min_samples_leaf": 12
+  },
+  "c009": {
+    "max_features": 1.0,
+    "min_samples_leaf": 16
+  },
+  "c010": {
+    "max_features": 0.2,
+    "min_samples_leaf": 1
+  },
+  "c011": {
+    "max_features": 0.2,
+    "min_samples_leaf": 2
+  },
+  "c012": {
+    "max_features": 0.2,
+    "min_samples_leaf": 3
+  },
+  "c013": {
+    "max_features": 0.2,
+    "min_samples_leaf": 4
+  },
+  "c014": {
+    "max_features": 0.2,
+    "min_samples_leaf": 5
+  },
+  "c015": {
+    "max_features": 0.2,
+    "min_samples_leaf": 6
+  },
+  "c016": {
+    "max_features": 0.2,
+    "min_samples_leaf": 8
+  },
+  "c017": {
+    "max_features": 0.2,
+    "min_samples_leaf": 10
+  },
+  "c018": {
+    "max_features": 0.2,
+    "min_samples_leaf": 12
+  },
+  "c019": {
+    "max_features": 0.2,
+    "min_samples_leaf": 16
+  },
+  "c020": {
+    "max_features": 0.35,
+    "min_samples_leaf": 1
+  },
+  "c021": {
+    "max_features": 0.35,
+    "min_samples_leaf": 2
+  },
+  "c022": {
+    "max_features": 0.35,
+    "min_samples_leaf": 3
+  },
+  "c023": {
+    "max_features": 0.35,
+    "min_samples_leaf": 4
+  },
+  "c024": {
+    "max_features": 0.35,
+    "min_samples_leaf": 5
+  },
+  "c025": {
+    "max_features": 0.35,
+    "min_samples_leaf": 6
+  },
+  "c026": {
+    "max_features": 0.35,
+    "min_samples_leaf": 8
+  },
+  "c027": {
+    "max_features": 0.35,
+    "min_samples_leaf": 10
+  },
+  "c028": {
+    "max_features": 0.35,
+    "min_samples_leaf": 12
+  },
+  "c029": {
+    "max_features": 0.35,
+    "min_samples_leaf": 16
+  },
+  "c030": {
+    "max_features": 0.5,
+    "min_samples_leaf": 1
+  },
+  "c031": {
+    "max_features": 0.5,
+    "min_samples_leaf": 2
+  },
+  "c032": {
+    "max_features": 0.5,
+    "min_samples_leaf": 3
+  },
+  "c033": {
+    "max_features": 0.5,
+    "min_samples_leaf": 4
+  },
+  "c034": {
+    "max_features": 0.5,
+    "min_samples_leaf": 5
+  },
+  "c035": {
+    "max_features": 0.5,
+    "min_samples_leaf": 6
+  },
+  "c036": {
+    "max_features": 0.5,
+    "min_samples_leaf": 8
+  },
+  "c037": {
+    "max_features": 0.5,
+    "min_samples_leaf": 10
+  },
+  "c038": {
+    "max_features": 0.5,
+    "min_samples_leaf": 12
+  },
+  "c039": {
+    "max_features": 0.5,
+    "min_samples_leaf": 16
+  },
+  "c040": {
+    "max_features": 0.65,
+    "min_samples_leaf": 1
+  },
+  "c041": {
+    "max_features": 0.65,
+    "min_samples_leaf": 2
+  },
+  "c042": {
+    "max_features": 0.65,
+    "min_samples_leaf": 3
+  },
+  "c043": {
+    "max_features": 0.65,
+    "min_samples_leaf": 4
+  },
+  "c044": {
+    "max_features": 0.65,
+    "min_samples_leaf": 5
+  },
+  "c045": {
+    "max_features": 0.65,
+    "min_samples_leaf": 6
+  },
+  "c046": {
+    "max_features": 0.65,
+    "min_samples_leaf": 8
+  },
+  "c047": {
+    "max_features": 0.65,
+    "min_samples_leaf": 10
+  },
+  "c048": {
+    "max_features": 0.65,
+    "min_samples_leaf": 12
+  },
+  "c049": {
+    "max_features": 0.65,
+    "min_samples_leaf": 16
+  },
+  "c050": {
+    "max_features": 0.8,
+    "min_samples_leaf": 1
+  },
+  "c051": {
+    "max_features": 0.8,
+    "min_samples_leaf": 2
+  },
+  "c052": {
+    "max_features": 0.8,
+    "min_samples_leaf": 3
+  },
+  "c053": {
+    "max_features": 0.8,
+    "min_samples_leaf": 4
+  },
+  "c054": {
+    "max_features": 0.8,
+    "min_samples_leaf": 5
+  },
+  "c055": {
+    "max_features": 0.8,
+    "min_samples_leaf": 6
+  },
+  "c056": {
+    "max_features": 0.8,
+    "min_samples_leaf": 8
+  },
+  "c057": {
+    "max_features": 0.8,
+    "min_samples_leaf": 10
+  },
+  "c058": {
+    "max_features": 0.8,
+    "min_samples_leaf": 12
+  },
+  "c059": {
+    "max_features": 0.8,
+    "min_samples_leaf": 16
+  }
+}
