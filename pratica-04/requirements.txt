@@ -1,0 +1,15 @@
+numpy==2.4.6
+pandas==2.3.3
+scipy==1.17.1
+scikit-learn==1.9.1
+flaml==2.8.0
+autogluon.tabular==1.6.3
+lightgbm==4.7.0
+xgboost==2.1.4
+catboost==1.2.10
+desReg==0.1.1
+scikit-posthocs==0.18.0
+matplotlib==3.11.2
+nbconvert==7.17.2
+ipykernel==7.4.0
+pytest==9.2.0
