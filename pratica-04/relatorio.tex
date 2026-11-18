@@ -56,11 +56,9 @@ Oráculo & O melhor dos seis regressores de P em cada dataset, escolhido olhando
 \end{tabularx}
 \end{center}
 
-O Warm-start foi refeito. Na Prática 3, a busca consultava uma matriz de perdas calculada com os próprios folds de teste. Aqui, cada avaliação usa validação cruzada de 3 folds dentro do treino, como fazem os sistemas de AutoML.
+Dois cuidados garantem que o teste não entra em nenhuma escolha. O Warm-start foi refeito: na Prática 3, a busca consultava uma matriz de perdas calculada com os próprios folds de teste; aqui, cada configuração é avaliada por validação cruzada de 3 folds dentro do treino. E as meta-características do alvo, que na MtL e no Warm-start dependem de $y$ (assimetria, proporção de relevantes, complexidade por grupo), são calculadas só no treino de cada fold. O meta-conhecimento vem dos outros 29 datasets, calculado antes sobre cada dataset inteiro, e a padronização usada na busca de vizinhos é ajustada só neles; o alvo, descrito por 90\% dos exemplos, fica numa escala ligeiramente diferente em descritores como o número de exemplos. Testes automatizados trocam o teste do fold por ruído e conferem que descritores, recomendação, vizinhos e configuração escolhida não mudam.
 
-Esta é a segunda versão do experimento. Na primeira, a MtL e o Warm-start descreviam o dataset alvo com Xbase e Xestendido calculados no dataset inteiro. Vários desses descritores dependem do alvo (assimetria, curtose e proporção de relevantes de $y$, complexidade por grupo), então os exemplos de teste influenciavam a recomendação e a escolha dos vizinhos. Agora as meta-características do alvo são recalculadas no treino de cada fold, com o mesmo código das Práticas 1 e 2, e a MtL recomenda um regressor por fold. O meta-modelo continua treinado com os outros 29 datasets, cujos descritores e perdas foram calculados antes e não envolvem o alvo; a padronização e a imputação usadas na busca de vizinhos também são ajustadas só nesses 29. Testes automatizados trocam os exemplos de teste por ruído e confirmam que descritores, recomendação, vizinhos e configuração escolhida não mudam. Nos outros métodos não encontrei acesso ao teste: os seis regressores, a DESReg (inclusive a $\varphi$ da competência) e os AutoML só recebem o treino.
-
-A correção mudou pouco os resultados. A recomendação da MtL mudou em 8 dos 300 folds; as configurações iniciais do Warm-start mudaram em 97 folds, que tiveram a busca refeita. Os outros 203 folds tinham as mesmas configurações iniciais; como a busca é determinística dado o treino e as iniciais, reaproveitei esses resultados, e um teste refaz alguns deles e confere que a SERA é idêntica. O rank médio da MtL foi de 6,83 para 6,87 e o do Warm-start de 5,90 para 5,87; nenhuma conclusão da primeira versão mudou por causa do vazamento. O que mudou foi o custo do Warm-start, porque agora o Xestendido é extraído em cada fold (Seção~\ref{sec:custo}). A versão anterior das tabelas está em \texttt{resultados/versao\_1/}.
+Numa primeira versão deste experimento, essas meta-características vinham do dataset inteiro. A correção mudou a recomendação da MtL em 8 dos 300 folds e as configurações iniciais do Warm-start em 97, sem alterar nenhuma conclusão (rank médio da MtL de 6,83 para 6,87; do Warm-start, de 5,90 para 5,87). Os resultados anteriores estão em \texttt{resultados/versao\_1/}.
 
 \section{Desempenho}
 
@@ -104,9 +102,9 @@ Com 5 s, Warm-start (que leva cerca de 63 s por fold), Melhor médio e MtL ocupa
 
 As duas versões da DESReg ficaram em último lugar nos três orçamentos. Ponderar a competência pela relevância melhora a DESReg em 22 datasets, mas a DESReg-$\varphi$ supera o Melhor médio em apenas 7. Esse resultado vale para a configuração avaliada: pool de bagging dos seis regressores padrão, $k$ e divisão DSEL fixos e as duas medidas de competência. Ele não mostra que a seleção dinâmica seja pior em geral.
 
-\section{Comparações controladas}
+\section{Comparações por fator}\label{sec:fatores}
 
-A comparação acima responde a uma pergunta prática (qual método escolher com certo orçamento), mas os métodos não têm o mesmo espaço de busca. A MtL escolhe entre seis regressores padrão; o Warm-start só ajusta o RF; os AutoML têm outras famílias, ajustam hiperparâmetros e, no AutoGluon, combinam modelos. Por isso ela não isola o efeito do meta-conhecimento. Na tabela abaixo, cada par muda um fator de cada vez, usando os resultados já obtidos. A unidade é o dataset. O teste é o de Wilcoxon pareado, com correção de Holm nos sete pares, e o intervalo é um bootstrap de 10.000 reamostras de datasets da mediana do ganho relativo.
+A comparação acima responde a uma pergunta prática, qual método usar com certo orçamento, mas os métodos não têm o mesmo espaço de busca, e por isso ela não isola o efeito do meta-conhecimento. Na tabela abaixo, comparo pares de métodos já avaliados que diferem principalmente por um fator. Só os pares MtL contra Melhor médio e FLAML com e sem portfólio mudam um único fator; o Warm-start também usa vizinhos para as iniciais (o efeito delas, com a mesma busca, foi medido na Prática 3), e o par principal mistura vários. A unidade é o dataset. O teste é o de Wilcoxon pareado, com correção de Holm nos sete pares, e o intervalo é um bootstrap de 10.000 reamostras de datasets da mediana do ganho relativo.
 
 \begin{center}\small
 \begin{tabularx}{\linewidth}{Ylrrr}
@@ -128,9 +126,9 @@ Os dois pares em que só o meta-conhecimento muda, MtL contra Melhor médio e FL
 
 \section{Custo}\label{sec:custo}
 
-O custo online é o tempo por fold para produzir o modelo de um dataset novo. Na MtL, inclui extrair Xbase do treino, consultar o meta-modelo e treinar o regressor. No Warm-start, inclui extrair Xestendido do treino (37 s por fold em média), escolher as iniciais e fazer as 20 avaliações. No AutoML, é a execução inteira. Na primeira versão, a extração do alvo era feita uma vez por dataset e dividida pelos folds; agora cada fold faz o papel de um dataset novo, e por isso o Warm-start passou de 32 para 63 s por fold.
+O custo online é o tempo por fold para produzir o modelo de um dataset novo. Na MtL, inclui extrair Xbase do treino, consultar o meta-modelo e treinar o regressor. No Warm-start, inclui extrair Xestendido do treino (37 s por fold, em média), escolher as iniciais e fazer as 20 avaliações; como a extração agora é feita em cada fold, ele passou de 32 para 63 s. No AutoML, é a execução inteira.
 
-Todos os tempos são de relógio. A MtL, o Warm-start, os regressores de P e as extrações rodam em um processo de uma thread; cada AutoML tinha 2 CPUs reservadas. Para comparar recursos, uso também núcleo-segundos: relógio vezes núcleos reservados. Para o AutoML isso é um limite superior, porque não registrei o tempo de CPU efetivamente usado. O custo offline é o tempo de construir o meta-conhecimento, também em núcleo-segundos: 0,26 h para a MtL (matriz P e Xbase) e 8,8 h para o Warm-start (matriz de perdas da Prática 3 e Xestendido). O custo offline do portfólio do FLAML e da lista do AutoGluon foi pago pelos autores e não tenho como medi-lo.
+Os tempos são de relógio. MtL, Warm-start e extrações rodam em uma thread, e cada AutoML tinha 2 CPUs; por isso uso também núcleo-segundos (relógio vezes núcleos reservados), que para o AutoML é um limite superior. O custo offline de construir o meta-conhecimento foi de 0,26 h para a MtL (matriz P e Xbase) e 8,8 h para o Warm-start (matriz de perdas e Xestendido). O do portfólio do FLAML e da lista do AutoGluon não tenho como medir.
 
 \begin{figure}[htbp]
 \centering
@@ -157,7 +155,7 @@ FLAML (até 30 s) & 12 & 5 &  & 13 \\
 
 O zero na coluna de 120 s do AutoGluon não quer dizer que o orçamento maior não ajude: o rank médio cai de 5,03 para 4,33. Ele só não vira nenhum dos datasets em que perdia para a MtL, em parte porque, em 12 datasets, o AutoGluon termina antes de 30 s e o resultado a 120 s é idêntico.
 
-O custo offline se paga depois de $n$ datasets novos quando $\mathit{offline} + n\,c_M \leq n\,c_A$, com $c_M$ e $c_A$ os custos online do método e do AutoML por dataset (dez folds). A conta só faz sentido contra um AutoML de desempenho parecido; contra um melhor, a economia vem acompanhada de um modelo pior. A tabela dá $n$ nas duas unidades.
+O custo offline se paga depois de $n$ datasets novos quando $\mathit{offline} + n\,c_M \leq n\,c_A$, com $c_M$ e $c_A$ os custos online do método e do AutoML por dataset (dez folds). A conta só faz sentido contra um AutoML de desempenho parecido; contra um melhor, economiza-se tempo entregando um modelo pior.
 
 \begin{center}\small
 \begin{tabular}{llrrrr}
@@ -174,7 +172,7 @@ Warm-start & AutoGluon 120 s (melhor) & 23 s & 1.396 & 677 s & 47 \\
 \end{tabular}
 \end{center}
 
-Contra os AutoML de 5 s, de rank pior, a MtL se paga a partir do 13º ou 14º dataset novo em relógio, ou do 6º ou 7º em núcleo-segundos. A diferença entre as duas colunas mostra que a conclusão depende da hipótese sobre recursos. Para o Warm-start, a conta não fecha: online, ele custa tanto quanto o AutoGluon a 120 s, que é melhor que ele, e, em relógio, é mais caro que todos os AutoML de 5 e 30 s. Parte desse custo é a extração de Xestendido, feita em uma thread; ela poderia ser paralelizada, mas não medi isso.
+Contra os AutoML de 5 s, de rank pior, a MtL se paga a partir do 13º ou 14º dataset novo em relógio, ou do 6º ou 7º em núcleo-segundos; o número depende da hipótese sobre recursos. Para o Warm-start, a conta não fecha: online, ele custa tanto quanto o AutoGluon a 120 s, que é melhor que ele, e, em relógio, é mais caro que todos os AutoML de 5 e 30 s.
 
 \section{O que o AutoML escolheu}
 
@@ -203,13 +201,13 @@ Também procurei em quais datasets a vantagem do AutoGluon a 120 s sobre a MtL �
 
 \subsection*{California Housing no portfólio do FLAML}
 
-O portfólio do FLAML guarda, padronizadas, as meta-características dos 22 pontos em que foi aprendido. Desfazendo a padronização, recuperei o número de exemplos e de atributos de cada ponto. Um deles tem 18.576 exemplos e 8 atributos, exatamente 90\% dos 20.640 exemplos do California Housing, que é o tamanho do treino em uma divisão de dez folds. Duas configurações do portfólio vêm de \texttt{houses}, que é o California Housing. Esse dataset está na minha coleção como \texttt{california}. Nenhum outro dos meus datasets bate com algum ponto do portfólio, nem pelo tamanho inteiro nem por 90\% dele. A evidência é de identidade de tamanho e de nome, não de conteúdo, mas é difícil que seja coincidência.
+O portfólio do FLAML guarda, padronizadas, as meta-características dos 22 pontos em que foi aprendido. Desfazendo a padronização, recuperei o número de exemplos e de atributos de cada ponto. Um deles tem 18.576 exemplos e 8 atributos, exatamente 90\% dos 20.640 exemplos do California Housing, que é o tamanho do treino em uma divisão de dez folds. Duas configurações do portfólio vêm de \texttt{houses}, que é o California Housing. Na minha coleção, ele é o \texttt{california}. Nenhum outro dos meus datasets bate com algum ponto do portfólio, nem pelo tamanho inteiro nem por 90\% dele. A evidência é de identidade de tamanho e de nome, não de conteúdo, mas é difícil que seja coincidência.
 
-Em \texttt{california}, o FLAML+zs tem a mesma SERA nos três orçamentos, e ela é a menor entre os 13 métodos. A configuração trazida do próprio dataset não é superada pela busca; sem o portfólio, o FLAML fica em 5º. Esse ganho vem de exposição prévia, não de transferência. Refiz as análises sem \texttt{california}: o FLAML+zs a 120 s cai de 6,43 para 6,59 em rank médio, a MtL passa de 6,87 para 6,81, e os três primeiros colocados não mudam. Os testes de Friedman continuam significativos, e o Nemenyi entre MtL e AutoGluon a 120 s dá $p=0{,}29$. No par AutoGluon contra MtL da seção anterior, o intervalo passa a incluir zero ([$-$0,011; 0,288]).
+Em \texttt{california}, o FLAML+zs tem a mesma SERA nos três orçamentos, e ela é a menor entre os 13 métodos. A configuração trazida do próprio dataset não é superada pela busca; sem o portfólio, o FLAML fica em 5º. Esse ganho vem de exposição prévia, não de transferência. Refiz as análises sem \texttt{california}: o FLAML+zs a 120 s cai de 6,43 para 6,59 em rank médio, a MtL passa de 6,87 para 6,81, e os três primeiros colocados não mudam. Os testes de Friedman continuam significativos, e o Nemenyi entre MtL e AutoGluon a 120 s dá $p=0{,}29$. No par AutoGluon contra MtL da Seção~\ref{sec:fatores}, o intervalo passa a incluir zero ([$-$0,011; 0,288]).
 
 Nos outros datasets, o portfólio pesa pouco. Os datasets do portfólio vão de 9,6 mil a 900 mil exemplos, e quase todos os meus são menores. No FLAML, o limite de \texttt{n\_estimators} depende do tamanho do treino, então a maioria das configurações sugeridas fica fora do espaço de busca e é descartada. O que sobra é principalmente a ordem dos estimadores: o LightGBM é testado primeiro em 60\% dos folds. O FLAML+zs foi melhor que o FLAML sem portfólio em 19 datasets a 5 s e em 18 a 30 s, mas sem diferença significativa. Houve também transferência negativa. No \texttt{heat}, o FLAML+zs não sai de uma configuração do portfólio (SERA 1.050), enquanto o FLAML sem portfólio chega a 29.
 
-No AutoGluon não há o que comparar. O preset usado não consulta características do dataset, e a lista de modelos é a mesma para todos.
+No AutoGluon não há o que comparar: o preset usado não consulta características do dataset.
 
 \subsection*{Datasets da mesma origem}
 
@@ -217,13 +215,13 @@ Alguns dos meus datasets têm a mesma origem: \texttt{a1}, \texttt{a2}, \texttt{
 
 \section{Conclusões e limites}
 
-Com poucos segundos por fold, a MtL e o Warm-start ficam à frente dos AutoML de 5 s em rank, e a MtL paga seu custo offline em 6 a 14 datasets novos, conforme a unidade de custo. Mas essa vantagem não vem das meta-características: a MtL quase sempre recomenda o RF e não se distingue do Melhor médio, que usa só o rank médio dos outros datasets. O que pesa é saber, a partir das práticas anteriores, que o RF padrão é uma escolha segura. A partir de 30 s, o AutoGluon fica à frente em rank e em perda, com SERA menor que a da MtL em 20 dos 30 datasets e ganho mediano de 15\%. Essa diferença não é significativa pelo Nemenyi e fica no limite pelo Wilcoxon com Holm. Ela não decorre do meta-conhecimento do AutoGluon, que é uma lista fixa de modelos, mas de um espaço maior de modelos, do ajuste de hiperparâmetros e do ensemble, efeitos que este experimento não separa. O ganho mais claro do portfólio do FLAML veio do California, que já estava nele.
+A pergunta era a partir de que orçamento o AutoML compensa em relação ao meta-conhecimento das práticas anteriores. Com 5 s por fold, nenhum AutoML supera em rank o Warm-start, o Melhor médio ou a MtL, e a MtL paga seu custo offline em 6 a 14 datasets novos, conforme a unidade de custo. A partir de 30 s, o AutoGluon lidera; a 120 s, tem SERA menor que a da MtL em 20 dos 30 datasets, com ganho mediano de 15\%, diferença que não é significativa pelo Nemenyi e fica no limite pelo Wilcoxon com Holm ($p=0{,}068$).
 
-Corrigir o vazamento das meta-características do alvo mudou a recomendação em poucos folds e não mudou as conclusões, mas dobrou o custo online do Warm-start.
+O que a evidência permite concluir é mais restrito. A vantagem da MtL com orçamento baixo não vem das meta-características, já que ela não se distingue do Melhor médio: o que pesa é saber, das práticas anteriores, que o RF padrão é uma escolha segura. O portfólio do FLAML também não teve efeito significativo, e seu ganho mais claro foi no California, que já estava nele. A vantagem do AutoGluon não depende de meta-conhecimento; vem de outras famílias, do ajuste de hiperparâmetros e do ensemble, efeitos que este experimento não separa.
 
-Para a pesquisa em seleção dinâmica, o resultado mais relevante é o da DESReg. Com um pool formado pelos seis regressores padrão, ela ficou atrás de todos os outros métodos, e ponderar a competência pela relevância só reduziu a diferença. Isso vale para o pool, as medidas de competência e os hiperparâmetros que avaliei. Ficam como hipóteses para trabalhos futuros: usar como pool os modelos que o AutoGluon já treina, cujo ensemble final é uma combinação fixa que a seleção dinâmica poderia ajustar por região; e verificar se a proporção de exemplos relevantes ajuda a prever quando a seleção dinâmica compensa.
+A DESReg ficou atrás de todos os métodos com o pool de seis regressores padrão, e ponderar a competência pela relevância só reduziu a diferença. Isso vale para o pool, as medidas de competência e os hiperparâmetros que avaliei. Ficam como hipóteses: usar como pool os modelos que o AutoGluon já treina, deixando a seleção dinâmica ajustar por região a combinação que hoje é fixa; e verificar se a proporção de exemplos relevantes ajuda a prever quando a seleção dinâmica compensa.
 
-Ficaram estes limites. O FLAML sem portfólio não foi rodado a 120 s. Os tempos são de relógio, com execuções simultâneas, e os núcleo-segundos do AutoML são um limite superior. A SERA estima a relevância no próprio fold de teste, e sem as predições não pude avaliar a sensibilidade a essa escolha. Os descritores dos outros 29 datasets usam o dataset inteiro, enquanto os do alvo usam 90\% dele; isso não envolve o teste do alvo, mas cria uma pequena diferença de escala em descritores como o número de exemplos. Por fim, o Warm-start não foi comparado aqui com a mesma busca sem meta-conhecimento; essa comparação está na Prática 3.
+Dois limites afetam a interpretação. Com 30 datasets, os testes têm pouco poder, e diferenças de 15\% em mediana ficam no limite da significância. E a SERA estima a relevância no próprio fold de teste; sem as predições guardadas, não pude verificar se os resultados mudam com a relevância estimada no treino.
 
 \begin{thebibliography}{9}
 \small

@@ -1,30 +1,18 @@
-"""Meta-aprendizagem com warm-start (Prática 3) nas mesmas partições do AutoML.
+"""Warm-start da Prática 3 refeito dentro de cada fold externo.
 
-Na Prática 3 a busca consultava a matriz de perdas, cujos valores para o
-dataset alvo vinham da validação cruzada completa, incluindo as partições de
-teste. Aqui a busca é refeita dentro de cada fold externo:
+Para cada fold, as 5 configurações iniciais vêm das melhores dos k=3 datasets
+mais próximos em Xestendido, usando só a matriz de perdas dos outros 29
+datasets; o alvo é descrito pelo Xestendido do treino (meta_por_fold.py). O
+SMBO (GP Matérn 2,5 + EI na grade de 60 configurações, T = 20) avalia cada
+configuração por CV de 3 folds no treino. A melhor é reajustada no treino e
+avaliada uma vez no teste.
 
-  * os pontos iniciais vêm dos k=3 vizinhos mais próximos em Xestendido
-    (braço principal da Prática 3), usando só a matriz de perdas dos OUTROS 29
-    datasets (meta-conhecimento offline). O alvo é descrito pelo Xestendido
-    calculado só no treino do fold (meta_por_fold.py); na primeira versão ele
-    vinha do dataset inteiro, o que deixava o teste influenciar os vizinhos;
-  * cada configuração avaliada é medida por validação cruzada interna (3 folds)
-    sobre o treino do fold externo: a busca nunca vê o teste;
-  * o SMBO (GP Matérn 2,5 + EI sobre a grade de 60 configurações) segue a
-    Prática 3, com o mesmo orçamento T = 20 avaliações;
-  * a melhor configuração pela validação interna é reajustada no treino
-    completo e avaliada no teste do fold.
+A busca é determinística dado (treino, iniciais). Com --reaproveitar, os folds
+cujas iniciais coincidem com as de resultados/versao_1/ copiam a linha antiga;
+`test_warmstart_reaproveitado` confere que refazê-los dá a mesma SERA.
+--sem-parentes tira do meta-conhecimento os datasets da mesma origem do alvo.
 
-Com --frio, registra também o SMBO com cinco iniciais aleatórias (o efeito do
-meta-conhecimento na própria solução já foi medido na Prática 3).
-
-A busca é determinística dado (treino, iniciais). Com --reaproveitar, um fold
-cujas iniciais coincidem com as da versão anterior (resultados/versao_1/) copia a
-linha antiga em vez de refazer a busca; o teste `test_warmstart_reaproveitado`
-refaz alguns desses folds e confere que a SERA é idêntica.
-
-Saída: resultados/warmstart_por_fold.csv
+Saída: resultados/warmstart_por_fold.csv (ou warmstart_sem_parentes_por_fold.csv)
 Uso: .venv/bin/python executar_warmstart.py [--jobs 6] [--datasets ...] [--reaproveitar]
 """
 from __future__ import annotations

@@ -1,20 +1,12 @@
-"""Meta-características do dataset alvo calculadas só no treino de cada fold externo.
+"""Xbase e Xestendido do dataset alvo calculados só no treino de cada fold externo.
 
-Na primeira versão da Prática 4, a MtL e o Warm-start descreviam o dataset alvo
-com Xbase e Xestendido calculados sobre o dataset inteiro. Vários descritores
-dependem do alvo (assimetria e curtose de y, proporção de raros, complexidade
-por grupo), então as observações do fold de teste influenciavam a recomendação.
+Usa o mesmo código das Práticas 1 e 2 (`gerar_X.meta_features_de` e
+`gerar_complexidade.processar_arrays`), sem as distribuições nulas, que não
+entram em X. Os descritores dos outros 29 datasets continuam vindo das
+matrizes das práticas anteriores.
 
-Este script recalcula, para cada dataset e cada um dos dez folds externos, os
-13 descritores de Xbase e os 51 de Xestendido usando apenas X[treino], y[treino],
-com o mesmo código das Práticas 1 e 2 (`gerar_X.meta_features_de` e
-`gerar_complexidade.processar_arrays`, sem as distribuições nulas, que eram
-diagnóstico e não entram em X).
-
-Os descritores dos outros 29 datasets continuam vindo das matrizes das práticas
-anteriores: são meta-conhecimento offline, de datasets diferentes do alvo.
-
-Saída: resultados/meta_por_fold.jsonl (uma linha por dataset × fold, com tempos)
+Saída: resultados/meta_por_fold.jsonl (uma linha por dataset × fold, com tempos;
+execuções já gravadas são puladas)
 Uso: .venv/bin/python meta_por_fold.py [--jobs 7] [--datasets ...]
 """
 from __future__ import annotations

@@ -56,7 +56,7 @@ code(r"""
 base = pd.read_csv(R / 'base_por_fold.csv')
 desreg = pd.read_csv(R / 'desreg_por_fold.csv')
 ws = pd.read_csv(R / 'warmstart_por_fold.csv')
-# segundos_iniciais já inclui, por fold, extrair Xestendido do treino e achar os vizinhos
+# segundos_iniciais inclui extrair Xestendido do treino do fold
 ws['segundos'] = ws.segundos_busca + ws.segundos_final + ws.segundos_iniciais
 print('folds do Warm-start reaproveitados da versão 1 (mesmas iniciais):', int(ws.reaproveitado.sum()), 'de', len(ws))
 
@@ -93,18 +93,16 @@ md("""
 
 1. Melhor médio: regressor de melhor rank médio nos outros 29 datasets, com configuração padrão.
 2. MtL: Abordagem 2 da Prática 1 (RF sobre R, com Xbase, em leave-one-dataset-out), top-1.
-   Xestendido não trouxe ganho significativo na Prática 2. O alvo é descrito pelo Xbase
-   calculado só no treino de cada fold (`meta_por_fold.py`), então a recomendação é por fold.
-3. Warm-start: SMBO da Prática 3 (Xestendido, k=3, T=20), avaliando só no treino do fold.
-   Os vizinhos também usam o Xestendido do treino do fold.
-
-Na versão 1 desta prática, o alvo era descrito por Xbase e Xestendido calculados no dataset
-inteiro, incluindo o fold de teste. Os resultados dessa versão estão em `resultados/versao_1/`.
+   O alvo é descrito pelo Xbase do treino de cada fold (`meta_por_fold.py`), então a recomendação é por fold.
+3. Warm-start: SMBO da Prática 3 (Xestendido, k=3, T=20), com vizinhos e avaliação só no treino do fold.
 4. AutoML: FLAML (com e sem meta-conhecimento) e AutoGluon, com 5, 30 e 120 s por fold.
 5. Oráculo: melhor dos seis regressores de P no dataset. É uma referência, não um método.
 
 Por causa do tema da minha pesquisa, incluí também a DESReg (seleção dinâmica sobre o pool
 de bagging dos seis regressores), com a competência padrão e com uma ponderada pela relevância (`phi`).
+
+Numa primeira versão, o alvo era descrito por Xbase e Xestendido calculados no dataset inteiro,
+incluindo o fold de teste. Os resultados dessa versão estão em `resultados/versao_1/`.
 """)
 code(r"""
 Xbase = pd.read_csv(c.META / 'X.csv', index_col=0).loc[DATASETS]   # offline: os outros 29 datasets
@@ -159,7 +157,7 @@ AUTOML = sorted(automl.metodo.unique(), key=lambda m: (m.split('_')[0], int(m.sp
 
 md("## 3. Análise 1: desempenho")
 code(r"""
-# Perda relativa ao melhor resultado observado no dataset (entre todos os métodos e o oráculo)
+# perda relativa à menor SERA do dataset, oráculo incluído
 melhor = L.min(axis=1)
 REL = L.div(melhor, axis=0) - 1
 resumo = pd.DataFrame({'perda_rel_media': REL.mean(), 'perda_rel_mediana': REL.median(),
@@ -203,7 +201,6 @@ testes = pd.DataFrame(testes); testes.to_csv(R / 'friedman.csv', index=False); d
 """)
 
 code(r"""
-# Dataset a dataset: perda relativa de cada método (heatmap)
 ordem = resumo.index.tolist()
 fig, ax = plt.subplots(figsize=(11, 8))
 im = ax.imshow(np.log10(1 + REL[ordem].to_numpy()), aspect='auto', cmap='viridis')
@@ -215,17 +212,11 @@ plt.savefig(FIG / 'perda_por_dataset.pdf', bbox_inches='tight'); plt.show()
 
 md("## 4. Análise 2: desempenho e custo")
 code(r"""
-# Unidades. Todos os tempos foram medidos em relógio (time.perf_counter).
-# Regressores de P, extração de meta-características, matriz da Prática 3, MtL e Warm-start rodam
-# em um processo de 1 thread: núcleo-segundos ≈ segundos de relógio. (O meta-modelo RF da MtL usa
-# n_jobs=-1 sobre 29 linhas e leva menos de 1 s; tratei como 1 núcleo.)
-# Cada execução de AutoML tinha 2 CPUs reservadas: 2 × relógio é o limite superior de núcleo-segundos.
-# Nenhum dos dois números mede CPU efetivamente usada (não registrei tempo de CPU do processo).
+# Tempos de relógio. Tudo fora do AutoML roda em 1 thread (o meta-modelo RF usa n_jobs=-1, mas leva
+# < 1 s); cada AutoML tinha 2 CPUs, então 2 × relógio é um limite superior de núcleo-segundos.
 NUCLEOS = {m: (2 if m in AUTOML else 1) for m in TEMPO.columns}
 
-# Custo offline (núcleo-segundos), do conjunto das práticas:
-#  * MtL: construir P (6 regressores × 10 folds × 30 datasets, medido aqui) e Xbase dos datasets
-#  * Warm-start: matriz de perdas 60 × 30 da Prática 3 e extração de Xestendido (Prática 2)
+# Custo offline: MtL = matriz P + Xbase; Warm-start = matriz de perdas da Prática 3 + Xestendido
 custo_ext = pd.read_csv(c.BASE / 'pratica-02' / 'resultados' / 'custo_extracao.csv')
 custo_ext = custo_ext[custo_ext.fase != 'nulo']           # distribuições nulas são diagnóstico, não descritor
 t_xest = custo_ext.groupby('dataset').segundos.sum().reindex(DATASETS)
@@ -264,9 +255,8 @@ for sis in ['flaml_meta', 'flaml', 'autogluon']:
         supera[(sis, alvo)] = primeiro.value_counts().reindex(cols + ['nunca'], fill_value=0)
 display(pd.DataFrame(supera).fillna(0).astype(int))
 
-# Ponto de equilíbrio do custo offline: menor n de datasets novos com offline + online_sol × n ≤ online_AutoML × n.
-# Duas unidades: relógio (como na versão 1) e núcleo-segundos (AutoML × 2). A comparação defensável
-# é com AutoML de desempenho equivalente; contra AutoML melhores, a economia troca qualidade por custo.
+# Ponto de equilíbrio: menor n com offline + online_sol × n ≤ online_AutoML × n, em relógio e em
+# núcleo-segundos. Só faz sentido contra AutoML de desempenho equivalente.
 eq = []
 for sol in ['MtL', 'Warm-start']:
     for m in AUTOML:
@@ -320,8 +310,6 @@ print('fração de folds em que a família recomendada pela MtL aparece no model
 """)
 
 code(r"""
-# Pré-processamento: o FLAML não faz engenharia de atributos para dados numéricos; o AutoGluon aplica
-# seu gerador de atributos automático (todos os 30 datasets são numéricos, então ele só tipa/remove constantes).
 # Onde o AutoML mais ganhou da MtL, e o que já sabíamos desses datasets?
 ref = 'flaml_meta_120s' if 'flaml_meta_120s' in L else AUTOML[-1]
 # AutoGluon a 120 s sozinho: escolher o melhor AutoML por dataset olharia o teste
@@ -336,7 +324,7 @@ tab = pd.DataFrame({'ganho_rel_AutoGluon_120s': ganho,
                     'oraculo_vs_MtL': L['MtL'] / L['Oraculo'] - 1,
                     'automl_vs_oraculo': L['autogluon_120s'] / L['Oraculo'] - 1}).loc[DATASETS]
 display(tab.sort_values('ganho_rel_AutoGluon_120s', ascending=False).round(3))
-# Análise exploratória: 5 correlações; corrijo os p-valores por Holm.
+# análise exploratória: p-valores corrigidos por Holm nas 5 correlações
 cor = []
 for col in ['perda_meta_modelo_P1', 'distancia_vizinho_P3', 'pct_relevante', 'n', 'p']:
     rho, p = spearmanr(tab.ganho_rel_AutoGluon_120s, tab[col], nan_policy='omit')
@@ -354,7 +342,6 @@ tab.to_csv(R / 'ganho_automl_por_dataset.csv')
 
 md("## 6. Meta-conhecimento do AutoML e sobreposição com os meus datasets")
 code(r"""
-# FLAML com e sem o portfólio zero-shot, no mesmo orçamento
 for orc in [5, 30, 120]:
     a, b = f'flaml_meta_{orc}s', f'flaml_{orc}s'
     if a in L and b in L:
@@ -397,14 +384,12 @@ display(viz.sort_values('NumberOfInstances'))
 """)
 
 md("""
-## 7. Comparações controladas
+## 7. Comparações por fator
 
-A comparação principal mistura espaços de busca diferentes: a MtL escolhe entre seis regressores
-padrão, o Warm-start ajusta só o RF, o FLAML e o AutoGluon têm famílias, hiperparâmetros e (no
-AutoGluon) ensembles. Ela responde a uma pergunta prática, mas não isola o efeito do meta-conhecimento.
-Os pares abaixo mudam um fator de cada vez, com os resultados já obtidos. Unidade: dataset (SERA
-média nos 10 folds). Teste de Wilcoxon pareado, p-valores corrigidos por Holm na família de pares.
-O intervalo é bootstrap (10.000 reamostras de datasets) da mediana da diferença relativa.
+A comparação principal mistura espaços de busca diferentes. Aqui comparo pares que diferem
+principalmente por um fator (só MtL × Melhor médio e FLAML com × sem portfólio mudam um fator único).
+Unidade: dataset (SERA média nos 10 folds). Wilcoxon pareado, Holm nos sete pares; intervalo
+bootstrap (10.000 reamostras de datasets) da mediana do ganho relativo.
 """)
 code(r"""
 PARES = [
@@ -435,7 +420,7 @@ md("""
 ## 8. Sensibilidade: sem o California Housing
 
 O portfólio do FLAML contém o California Housing (Seção 6). Refaço o resumo, os testes de Friedman
-e as comparações controladas sem `california`, mantendo os resultados completos acima.
+e as comparações por fator sem `california`, mantendo os resultados completos acima.
 """)
 code(r"""
 Ls = L.drop(index='california')
@@ -456,12 +441,9 @@ print('california, rank de cada método:'); display(L.loc['california'].drop('Or
 md("""
 ## 9. Sensibilidade: datasets da mesma origem
 
-Alguns datasets compartilham a origem: a1, a2, a3 e a7 têm a mesma matriz X (alvos diferentes);
-compactiv e cpu_small vêm do mesmo sistema; mortgage e treasury, e available_power e maximal_torque,
-também têm o mesmo número de exemplos e mesma origem. No leave-one-dataset-out, um "parente" do alvo
-fica no meta-conhecimento. Aqui retiro o grupo inteiro do treino do meta-modelo da MtL
-(leave-one-group-out). No Warm-start, conto quantas vezes um parente está entre os 3 vizinhos, e
-as buscas foram refeitas para os 10 datasets que têm parentes, retirando o grupo da matriz de perdas e de Xestendido.
+a1, a2, a3 e a7 têm a mesma matriz X; compactiv e cpu_small, mortgage e treasury, e available_power
+e maximal_torque também têm a mesma origem. Refaço a MtL e o Warm-start (`--sem-parentes`) tirando
+o grupo do alvo do meta-conhecimento (leave-one-group-out).
 """)
 code(r"""
 GRUPOS = [{'a1', 'a2', 'a3', 'a7'}, {'compactiv', 'cpu_small'}, {'mortgage', 'treasury'},
